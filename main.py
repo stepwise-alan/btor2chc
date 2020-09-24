@@ -7,6 +7,7 @@ from typing import TextIO, NewType, MutableMapping, Tuple, List, Union, Optional
 Sid = NewType('Sid', int)
 Nid = NewType('Nid', int)
 
+
 def b2bv(t: Tuple[str, bool]) -> str:
     return '(ite {:s} #b1 #b0)'.format(t[0]) if t[1] else t[0]
 
