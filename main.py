@@ -201,7 +201,8 @@ class State(Value):
             return v_map[self.nid]
         # TODO
         vid = 's_{:d}'.format(self.nid)
-        b = self.sort.booleanizable()
+        # b = self.sort.booleanizable()
+        b = False
         v_map[self.nid] = vid, b
         return vid, b
 
@@ -619,6 +620,14 @@ class Init(Node):
         self.value1 = value1
         self.value2 = value2
 
+    def to_smt_eq(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> str:
+        e1, b1 = t1 = self.value1.to_smt_expr(v_map)
+        e2, b2 = t2 = self.value2.to_smt_expr(v_map)
+        if b1 and b2:
+            return '(= {:s} {:s})'.format(e1, e2)
+        else:
+            return '(= {:s} {:s})'.format(b2bv(t1), b2bv(t2))
+
 
 class Next(Node):
     nid: Nid
@@ -632,6 +641,9 @@ class Next(Node):
         self.sort = sort
         self.value1 = value1
         self.value2 = value2
+
+    def to_smt_next(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> str:
+        return b2bv(self.value2.to_smt_expr(v_map))
 
 
 class Bad(Node):
@@ -689,6 +701,10 @@ class Justice(Node):
 class Btor2Chc(object):
     sort_map: MutableMapping[Sid, Sort] = {}
     value_map: MutableMapping[Nid, Value] = {}
+    state_list: List[State] = []
+    init_list: List[Init] = []
+    next_list: List[Next] = []
+
     bad_list: List[Bad] = []
     constraint_list: List[Constraint] = []
     fair_list: List[Fair] = []
@@ -701,7 +717,7 @@ class Btor2Chc(object):
     def get_value(self, n: Union[Nid, str]) -> Value:
         return self.value_map.get(Nid(int(n)))
 
-    def convert(self, source: TextIO, target: TextIO) -> None:
+    def parse(self, source: TextIO):
         for line in source:
             line_left: str
             sep: str
@@ -711,12 +727,9 @@ class Btor2Chc(object):
 
             tokens: List[str] = line_left.split()
 
-            comment: str
-            comment = sep + line_right
+            # comment: str = sep + line_right
 
             if len(tokens) == 0:
-                if comment:
-                    target.write(comment)
                 continue
 
             name: str = tokens[1]
@@ -763,7 +776,9 @@ class Btor2Chc(object):
             elif name == 'consth':
                 self.value_map[nid] = Consth(nid, sort, tokens[3])
             elif name == 'state':
-                self.value_map[nid] = State(nid, sort)
+                state: State = State(nid, sort)
+                self.value_map[nid] = state
+                self.state_list.append(state)
             elif name == 'sext':
                 self.value_map[nid] = Sext(nid, sort, self.get_value(tokens[3]), int(tokens[4]))
             elif name == 'slice':
@@ -870,6 +885,32 @@ class Btor2Chc(object):
             elif name == 'write':
                 self.value_map[nid] = Write(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]),
                                             self.get_value(tokens[5]))
+            elif name == 'init':
+                init: Init = Init(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+                self.init_list.append(init)
+            elif name == 'next':
+                nxt: Next = Next(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+                self.next_list.append(nxt)
+
+    def convert(self, source: TextIO, target: TextIO) -> None:
+        self.parse(source)
+        target.write('(set-logic HORN)')
+        target.write('(declare-fun Inv ({:s}) Bool)'.format(' '.join([s.sort.to_smt_sort() for s in self.state_list])))
+
+        # TODO: constraint
+        init_v_map: MutableMapping[Nid, Tuple[str, bool]] = {}
+        init_smt_exprs: List[str] = []
+        for init in self.init_list:
+            init_smt_exprs.append(init.to_smt_eq(init_v_map))
+        init_smt_vars: List[str] = []
+        for nid, (e, b) in init_v_map.items():
+            if b:
+                init_smt_vars.append('({:s} {:s})'.format(e, 'Bool'))
+            else:
+                init_smt_vars.append('({:s} {:s})'.format(e, self.get_value(nid).sort.to_smt_sort()))
+        target.write('(assert (forall ({:s}) (=> (and {:s}) (Inv {:s}))))'.format(
+            ' '.join(init_smt_vars), ' '.join(init_smt_exprs), ' '.join([init_v_map[s.nid][0] for s in self.state_list])
+        ))
 
 
 def main():
