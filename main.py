@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 from abc import abstractmethod, ABC
 from typing import TextIO, NewType, MutableMapping, Tuple, List, Union, Optional, Mapping
@@ -5,7 +7,7 @@ from typing import TextIO, NewType, MutableMapping, Tuple, List, Union, Optional
 Sid = NewType('Sid', int)
 Nid = NewType('Nid', int)
 
-
+git
 def b2bv(t: Tuple[str, bool]) -> str:
     return '(ite {:s} #b1 #b0)'.format(t[0]) if t[1] else t[0]
 
@@ -914,7 +916,7 @@ class Btor2Chc(object):
         query_inv_args: List[str] = []
         for state in self.state_map.values():
             query_inv_args.append(b2bv(state.to_smt_expr(query_v_map)))
-            
+
         query_cond: List[str] = []
         for bad in self.bad_list:
             query_cond.append(bad.to_smt_cond(query_v_map))
