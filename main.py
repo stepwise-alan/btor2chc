@@ -1,6 +1,6 @@
 import argparse
 from abc import abstractmethod, ABC
-from typing import TextIO, NewType, MutableMapping, Tuple, List, Union
+from typing import TextIO, NewType, MutableMapping, Tuple, List, Union, Optional
 
 Sid = NewType('Sid', int)
 Nid = NewType('Nid', int)
@@ -15,20 +15,15 @@ def bv2b(t: Tuple[str, bool]) -> str:
 
 
 class Node(ABC):
-    symbol: str
-    comment: str
-
     def __init__(self, symbol: str = None, comment: str = None) -> None:
-        self.symbol = symbol
-        self.comment = comment
+        self.symbol: str = symbol
+        self.comment: str = comment
 
 
 class Sort(Node):
-    sid: Sid
-
     def __init__(self, sid: Sid, symbol: str = None, comment: str = None):
         super().__init__(symbol, comment)
-        self.sid = sid
+        self.sid: Sid = sid
 
     @abstractmethod
     def get_width(self) -> int:
@@ -44,11 +39,9 @@ class Sort(Node):
 
 
 class Bitvec(Sort):
-    width: int
-
     def __init__(self, sid: Sid, width: int, symbol: str = None, comment: str = None):
         super().__init__(sid, symbol, comment)
-        self.width = width
+        self.width: int = width
 
     def get_width(self) -> int:
         return self.width
@@ -61,13 +54,10 @@ class Bitvec(Sort):
 
 
 class Array(Sort):
-    index: Sort
-    element: Sort
-
     def __init__(self, sid: Sid, index: Sort, element: Sort, symbol: str = None, comment: str = None):
         super().__init__(sid, symbol, comment)
-        self.index = index
-        self.element = element
+        self.index: Sort = index
+        self.element: Sort = element
 
     def get_width(self) -> int:
         # TODO
@@ -81,13 +71,10 @@ class Array(Sort):
 
 
 class Value(Node):
-    nid: Nid
-    sort: Sort
-
     def __init__(self, nid: Nid, sort: Sort, symbol: str = None, comment: str = None):
         super().__init__(symbol, comment)
-        self.nid = nid
-        self.sort = sort
+        self.nid: Nid = nid
+        self.sort: Sort = sort
 
     @abstractmethod
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
@@ -145,11 +132,9 @@ class Zero(Value):
 
 
 class Const(Value):
-    bin_str: str
-
     def __init__(self, nid: Nid, sort: Sort, bin_str: str, symbol: str = None, comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        self.bin_str = bin_str
+        self.bin_str: str = bin_str
         if len(bin_str) > sort.get_width():
             # TODO
             raise ValueError
@@ -161,8 +146,6 @@ class Const(Value):
 
 
 class Constd(Value):
-    bin_str: str
-
     def __init__(self, nid: Nid, sort: Sort, dec_str: str, symbol: str = None, comment: str = None):
         super().__init__(nid, sort, symbol, comment)
         n: int = int(dec_str)
@@ -171,7 +154,7 @@ class Constd(Value):
             raise ValueError
         if n < 0:
             n = (1 << sort.get_width()) + n
-        self.bin_str = format(n, 'b')
+        self.bin_str: str = format(n, 'b')
 
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
         if self.sort.booleanizable():
@@ -180,11 +163,9 @@ class Constd(Value):
 
 
 class Consth(Value):
-    hex_str: str
-
     def __init__(self, nid: Nid, sort: Sort, hex_str: str, symbol: str = None, comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        self.hex_str = hex_str
+        self.hex_str: str = hex_str
         if sort.get_width() % 4 != 0:
             # TODO:
             raise ValueError
@@ -196,6 +177,11 @@ class Consth(Value):
 
 
 class State(Value):
+    def __init__(self, nid: Nid, sort: Sort, symbol: str = None, comment: str = None):
+        super().__init__(nid, sort, symbol, comment)
+        self.__init: Optional[Init] = None
+        self.__next: Optional[Next] = None
+
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
         if self.nid in v_map:
             return v_map[self.nid]
@@ -206,15 +192,32 @@ class State(Value):
         v_map[self.nid] = vid, b
         return vid, b
 
+    @property
+    def init(self) -> 'Init':
+        return self.__init
+
+    @init.setter
+    def init(self, init: 'Init') -> None:
+        if self.__init is not None:
+            raise ValueError
+        self.__init = init
+
+    @property
+    def next(self) -> 'Next':
+        return self.__next
+
+    @next.setter
+    def next(self, next: 'Next') -> None:
+        if self.__next is not None:
+            raise ValueError
+        self.__next = next
+
 
 class Sext(Value):
-    value: Value
-    w: int
-
     def __init__(self, nid: Nid, sort: Sort, value: Value, w: int, symbol: str = None, comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        self.value = value
-        self.w = w
+        self.value: Value = value
+        self.w: int = w
 
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
         # TODO: concat
@@ -222,13 +225,10 @@ class Sext(Value):
 
 
 class Uext(Value):
-    value: Value
-    w: int
-
     def __init__(self, nid: Nid, sort: Sort, value: Value, w: int, symbol: str = None, comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        self.value = value
-        self.w = w
+        self.value: Value = value
+        self.w: int = w
 
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
         # TODO: concat
@@ -236,16 +236,12 @@ class Uext(Value):
 
 
 class Slice(Value):
-    value: Value
-    upper: int
-    lower: int
-
     def __init__(self, nid: Nid, sort: Sort, value: Value, upper: int, lower: int, symbol: str = None,
                  comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        self.value = value
-        self.upper = upper
-        self.lower = lower
+        self.value: Value = value
+        self.upper: int = upper
+        self.lower: int = lower
 
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
         # TODO: extract
@@ -253,11 +249,9 @@ class Slice(Value):
 
 
 class UnaryOp(Value, ABC):
-    value: Value
-
     def __init__(self, nid: Nid, sort: Sort, value: Value, symbol: str = None, comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        self.value = value
+        self.value: Value = value
 
 
 class Not(UnaryOp):
@@ -311,13 +305,10 @@ class Redxor(UnaryOp):
 
 
 class BinaryOp(Value, ABC):
-    value1: Value
-    value2: Value
-
     def __init__(self, nid: Nid, sort: Sort, value1: Value, value2: Value, symbol: str = None, comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        self.value1 = value1
-        self.value2 = value2
+        self.value1: Value = value1
+        self.value2: Value = value2
 
 
 class Iff(BinaryOp):
@@ -579,16 +570,12 @@ class Read(BinaryOp):
 
 
 class TernaryOp(Value, ABC):
-    value1: Value
-    value2: Value
-    value3: Value
-
     def __init__(self, nid: Nid, sort: Sort, value1: Value, value2: Value, value3: Value, symbol: str = None,
                  comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        self.value1 = value1
-        self.value2 = value2
-        self.value3 = value3
+        self.value1: Value = value1
+        self.value2: Value = value2
+        self.value3: Value = value3
 
 
 class Ite(TernaryOp):
@@ -608,21 +595,17 @@ class Write(TernaryOp):
 
 
 class Init(Node):
-    nid: Nid
-    sort: Sort
-    value1: Value
-    value2: Value
-
-    def __init__(self, nid: Nid, sort: Sort, value1: Value, value2: Value, symbol: str = None, comment: str = None):
+    def __init__(self, nid: Nid, sort: Sort, state: State, value: Value, symbol: str = None, comment: str = None):
         super().__init__(symbol, comment)
-        self.nid = nid
-        self.sort = sort
-        self.value1 = value1
-        self.value2 = value2
+        self.nid: Nid = nid
+        self.sort: Sort = sort
+        self.state: State = state
+        self.value: Value = value
+        state.init = self
 
     def to_smt_eq(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> str:
-        e1, b1 = t1 = self.value1.to_smt_expr(v_map)
-        e2, b2 = t2 = self.value2.to_smt_expr(v_map)
+        e1, b1 = t1 = self.state.to_smt_expr(v_map)
+        e2, b2 = t2 = self.value.to_smt_expr(v_map)
         if b1 and b2:
             return '(= {:s} {:s})'.format(e1, e2)
         else:
@@ -630,92 +613,74 @@ class Init(Node):
 
 
 class Next(Node):
-    nid: Nid
-    sort: Sort
-    value1: Value
-    value2: Value
-
-    def __init__(self, nid: Nid, sort: Sort, value1: Value, value2: Value, symbol: str = None, comment: str = None):
+    def __init__(self, nid: Nid, sort: Sort, state: State, value: Value, symbol: str = None, comment: str = None):
         super().__init__(symbol, comment)
-        self.nid = nid
-        self.sort = sort
-        self.value1 = value1
-        self.value2 = value2
+        self.nid: Nid = nid
+        self.sort: Sort = sort
+        self.state: State = state
+        self.value: Value = value
+        state.next = self
 
     def to_smt_next(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> str:
-        return b2bv(self.value2.to_smt_expr(v_map))
+        return b2bv(self.value.to_smt_expr(v_map))
 
 
 class Bad(Node):
-    nid: Nid
-    value: Value
-
     def __init__(self, nid: Nid, value: Value, symbol: str = None, comment: str = None):
         super().__init__(symbol, comment)
-        self.nid = nid
-        self.value = value
+        self.nid: Nid = nid
+        self.value: Value = value
 
 
 class Constraint(Node):
-    nid: Nid
-    value: Value
-
     def __init__(self, nid: Nid, value: Value, symbol: str = None, comment: str = None):
         super().__init__(symbol, comment)
-        self.nid = nid
-        self.value = value
+        self.nid: Nid = nid
+        self.value: Value = value
 
 
 class Fair(Node):
-    nid: Nid
-    value: Value
-
     def __init__(self, nid: Nid, value: Value, symbol: str = None, comment: str = None):
         super().__init__(symbol, comment)
-        self.nid = nid
-        self.value = value
+        self.nid: Nid = nid
+        self.value: Value = value
 
 
 class Output(Node):
-    nid: Nid
-    value: Value
-
     def __init__(self, nid: Nid, value: Value, symbol: str = None, comment: str = None):
         super().__init__(symbol, comment)
-        self.nid = nid
-        self.value = value
+        self.nid: Nid = nid
+        self.value: Value = value
 
 
 class Justice(Node):
-    nid: Nid
-    n: int
-    values: List[Value]
-
     def __init__(self, nid: Nid, n: int, values: List[Value], symbol: str = None, comment: str = None):
         super().__init__(symbol, comment)
-        self.nid = nid
-        self.n = n
-        self.values = values
+        self.nid: Nid = nid
+        self.n: int = n
+        self.values: List[Value] = values
 
 
 class Btor2Chc(object):
-    sort_map: MutableMapping[Sid, Sort] = {}
-    value_map: MutableMapping[Nid, Value] = {}
-    state_list: List[State] = []
-    init_list: List[Init] = []
-    next_list: List[Next] = []
-
-    bad_list: List[Bad] = []
-    constraint_list: List[Constraint] = []
-    fair_list: List[Fair] = []
-    output_list: List[Output] = []
-    justice_list: List[Justice] = []
+    def __init__(self):
+        self.sort_map: MutableMapping[Sid, Sort] = {}
+        self.value_map: MutableMapping[Nid, Value] = {}
+        self.state_map: MutableMapping[Nid, State] = {}
+        self.init_list: List[Init] = []
+        self.bad_list: List[Bad] = []
+        self.constraint_list: List[Constraint] = []
+        self.fair_list: List[Fair] = []
+        self.output_list: List[Output] = []
+        self.justice_list: List[Justice] = []
 
     def get_sort(self, s: Union[Sid, str]) -> Sort:
         return self.sort_map.get(Sid(int(s)))
 
     def get_value(self, n: Union[Nid, str]) -> Value:
         return self.value_map.get(Nid(int(n)))
+
+    def get_state(self, n: Union[Nid, str]) -> State:
+        return self.state_map.get(Nid(int(n)))
 
     def parse(self, source: TextIO):
         for line in source:
@@ -778,7 +743,7 @@ class Btor2Chc(object):
             elif name == 'state':
                 state: State = State(nid, sort)
                 self.value_map[nid] = state
-                self.state_list.append(state)
+                self.state_map[nid] = state
             elif name == 'sext':
                 self.value_map[nid] = Sext(nid, sort, self.get_value(tokens[3]), int(tokens[4]))
             elif name == 'slice':
@@ -886,31 +851,37 @@ class Btor2Chc(object):
                 self.value_map[nid] = Write(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]),
                                             self.get_value(tokens[5]))
             elif name == 'init':
-                init: Init = Init(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
-                self.init_list.append(init)
+                self.init_list.append(Init(nid, sort, self.get_state(tokens[3]), self.get_value(tokens[4])))
             elif name == 'next':
-                nxt: Next = Next(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
-                self.next_list.append(nxt)
+                Next(nid, sort, self.get_state(tokens[3]), self.get_value(tokens[4]))
 
     def convert(self, source: TextIO, target: TextIO) -> None:
         self.parse(source)
         target.write('(set-logic HORN)')
-        target.write('(declare-fun Inv ({:s}) Bool)'.format(' '.join([s.sort.to_smt_sort() for s in self.state_list])))
+        target.write('(declare-fun Inv ({:s}) Bool)'.format(' '.join(
+            [s.sort.to_smt_sort() for s in self.state_map.values()])))
 
         # TODO: constraint
         init_v_map: MutableMapping[Nid, Tuple[str, bool]] = {}
-        init_smt_exprs: List[str] = []
+
+        init_inv_args: List[str] = []
+        for state in self.state_map.values():
+            init_inv_args.append(b2bv(state.to_smt_expr(init_v_map)))
+
+        init_eqs: List[str] = []
         for init in self.init_list:
-            init_smt_exprs.append(init.to_smt_eq(init_v_map))
-        init_smt_vars: List[str] = []
+            init_eqs.append(init.to_smt_eq(init_v_map))
+
+        init_vs: List[str] = []
         for nid, (e, b) in init_v_map.items():
             if b:
-                init_smt_vars.append('({:s} {:s})'.format(e, 'Bool'))
+                init_vs.append('({:s} {:s})'.format(e, 'Bool'))
             else:
-                init_smt_vars.append('({:s} {:s})'.format(e, self.get_value(nid).sort.to_smt_sort()))
+                init_vs.append('({:s} {:s})'.format(e, self.get_value(nid).sort.to_smt_sort()))
         target.write('(assert (forall ({:s}) (=> (and {:s}) (Inv {:s}))))'.format(
-            ' '.join(init_smt_vars), ' '.join(init_smt_exprs), ' '.join([init_v_map[s.nid][0] for s in self.state_list])
-        ))
+            ' '.join(init_vs),
+            ' '.join(init_eqs),
+            ' '.join(init_inv_args)))
 
 
 def main():
