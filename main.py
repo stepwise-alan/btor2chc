@@ -83,6 +83,18 @@ class Value(Node):
         raise NotImplementedError
 
 
+class Minus(Value):
+    def __init__(self, value: Value):
+        super().__init__(value.nid, value.sort)
+        self.value: Value = value
+
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
+        e, b = self.value.to_smt_expr(v_map)
+        if b:
+            return '(not {:s})'.format(e), True
+        return '(bvnot {:s})'.format(e), False
+
+
 class Input(Value):
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.nid in v_map:
@@ -97,7 +109,7 @@ class Input(Value):
 class One(Value):
     def __init__(self, nid: Nid, sort: Sort, symbol: str = None, comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        if sort is not Bitvec:
+        if not isinstance(sort, Bitvec):
             # TODO
             raise ValueError
 
@@ -110,7 +122,7 @@ class One(Value):
 class Ones(Value):
     def __init__(self, nid: Nid, sort: Sort, symbol: str = None, comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        if sort is not Bitvec:
+        if not isinstance(sort, Bitvec):
             # TODO
             raise ValueError
 
@@ -123,7 +135,7 @@ class Ones(Value):
 class Zero(Value):
     def __init__(self, nid: Nid, sort: Sort, symbol: str = None, comment: str = None):
         super().__init__(nid, sort, symbol, comment)
-        if sort is not Bitvec:
+        if not isinstance(sort, Bitvec):
             # TODO
             raise ValueError
 
@@ -209,10 +221,10 @@ class State(Value):
         return self.__next
 
     @next.setter
-    def next(self, next: 'Next') -> None:
+    def next(self, nxt: 'Next') -> None:
         if self.__next is not None:
             raise ValueError
-        self.__next = next
+        self.__next = nxt
 
 
 class Sext(Value):
@@ -685,7 +697,10 @@ class Btor2Chc(object):
         return self.sort_map.get(Sid(int(s)))
 
     def get_value(self, n: Union[Nid, str]) -> Value:
-        return self.value_map.get(Nid(int(n)))
+        int_n = int(n)
+        if int_n < 0:
+            return Minus(self.value_map.get(Nid(-int_n)))
+        return self.value_map.get(Nid(int_n))
 
     def get_state(self, n: Union[Nid, str]) -> State:
         return self.state_map.get(Nid(int(n)))
