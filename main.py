@@ -1,6 +1,6 @@
 import argparse
 from abc import abstractmethod, ABC
-from typing import TextIO, NewType, MutableMapping, Tuple
+from typing import TextIO, NewType, MutableMapping, Tuple, List, Union
 
 Sid = NewType('Sid', int)
 Nid = NewType('Nid', int)
@@ -18,7 +18,7 @@ class Node(ABC):
     symbol: str
     comment: str
 
-    def __init__(self, symbol: str = None, comment: str = None):
+    def __init__(self, symbol: str = None, comment: str = None) -> None:
         self.symbol = symbol
         self.comment = comment
 
@@ -592,15 +592,284 @@ class TernaryOp(Value, ABC):
 
 class Ite(TernaryOp):
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
-        pass
-        # e2, b2 = self.value2.to_smt_expr(v_map)
-        # e3, b3 = self.value3.to_smt_expr(v_map)
-        # return '(ite {:s} {:s} {:s})'.format(bv2b(self.value1.to_smt_expr(v_map)), )
+        e2, b2 = t2 = self.value2.to_smt_expr(v_map)
+        e3, b3 = t3 = self.value3.to_smt_expr(v_map)
+        if b2 and b3:
+            return '(ite {:s} {:s} {:s})'.format(bv2b(self.value1.to_smt_expr(v_map)), e2, e3), True
+        return '(ite {:s} {:s} {:s})'.format(bv2b(self.value1.to_smt_expr(v_map)), b2bv(t2), b2bv(t3)), False
+
+
+class Write(TernaryOp):
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+        return '(store {:s} {:s} {:s})'.format(self.value1.to_smt_expr(v_map),
+                                               b2bv(self.value2.to_smt_expr(v_map)),
+                                               b2bv(self.value3.to_smt_expr(v_map))), False
+
+
+class Init(Node):
+    nid: Nid
+    sort: Sort
+    value1: Value
+    value2: Value
+
+    def __init__(self, nid: Nid, sort: Sort, value1: Value, value2: Value, symbol: str = None, comment: str = None):
+        super().__init__(symbol, comment)
+        self.nid = nid
+        self.sort = sort
+        self.value1 = value1
+        self.value2 = value2
+
+
+class Next(Node):
+    nid: Nid
+    sort: Sort
+    value1: Value
+    value2: Value
+
+    def __init__(self, nid: Nid, sort: Sort, value1: Value, value2: Value, symbol: str = None, comment: str = None):
+        super().__init__(symbol, comment)
+        self.nid = nid
+        self.sort = sort
+        self.value1 = value1
+        self.value2 = value2
+
+
+class Bad(Node):
+    nid: Nid
+    value: Value
+
+    def __init__(self, nid: Nid, value: Value, symbol: str = None, comment: str = None):
+        super().__init__(symbol, comment)
+        self.nid = nid
+        self.value = value
+
+
+class Constraint(Node):
+    nid: Nid
+    value: Value
+
+    def __init__(self, nid: Nid, value: Value, symbol: str = None, comment: str = None):
+        super().__init__(symbol, comment)
+        self.nid = nid
+        self.value = value
+
+
+class Fair(Node):
+    nid: Nid
+    value: Value
+
+    def __init__(self, nid: Nid, value: Value, symbol: str = None, comment: str = None):
+        super().__init__(symbol, comment)
+        self.nid = nid
+        self.value = value
+
+
+class Output(Node):
+    nid: Nid
+    value: Value
+
+    def __init__(self, nid: Nid, value: Value, symbol: str = None, comment: str = None):
+        super().__init__(symbol, comment)
+        self.nid = nid
+        self.value = value
+
+
+class Justice(Node):
+    nid: Nid
+    n: int
+    values: List[Value]
+
+    def __init__(self, nid: Nid, n: int, values: List[Value], symbol: str = None, comment: str = None):
+        super().__init__(symbol, comment)
+        self.nid = nid
+        self.n = n
+        self.values = values
 
 
 class Btor2Chc(object):
+    sort_map: MutableMapping[Sid, Sort] = {}
+    value_map: MutableMapping[Nid, Value] = {}
+    bad_list: List[Bad] = []
+    constraint_list: List[Constraint] = []
+    fair_list: List[Fair] = []
+    output_list: List[Output] = []
+    justice_list: List[Justice] = []
+
+    def get_sort(self, s: Union[Sid, str]) -> Sort:
+        return self.sort_map.get(Sid(int(s)))
+
+    def get_value(self, n: Union[Nid, str]) -> Value:
+        return self.value_map.get(Nid(int(n)))
+
     def convert(self, source: TextIO, target: TextIO) -> None:
-        pass
+        for line in source:
+            line_left: str
+            sep: str
+            line_right: str
+
+            line_left, sep, line_right = line.partition(';')
+
+            tokens: List[str] = line_left.split()
+
+            comment: str
+            comment = sep + line_right
+
+            if len(tokens) == 0:
+                if comment:
+                    target.write(comment)
+                continue
+
+            name: str = tokens[1]
+            if name == 'sort':
+                sid: Sid = Sid(int(tokens[0]))
+                if tokens[2] == 'array':
+                    self.sort_map[sid] = Array(sid, self.get_sort(tokens[3]), self.get_sort(tokens[4]))
+                elif tokens[2] == 'bitvec':
+                    self.sort_map[sid] = Bitvec(sid, int(tokens[3]))
+                continue
+
+            nid: Nid = Nid(int(tokens[0]))
+
+            if name == 'bad':
+                self.bad_list.append(Bad(nid, self.get_value(tokens[2])))
+                continue
+            elif name == 'constraint':
+                self.constraint_list.append(Constraint(nid, self.get_value(tokens[2])))
+                continue
+            elif name == 'fair':
+                self.fair_list.append(Fair(nid, self.get_value(tokens[2])))
+                continue
+            elif name == 'output':
+                self.output_list.append(Output(nid, self.get_value(tokens[2])))
+                continue
+            elif name == 'justice':
+                n: int = int(tokens[2])
+                self.justice_list.append(Justice(nid, n, [self.get_value(x) for x in tokens[3:3 + n]]))
+                continue
+
+            sort: Sort = self.get_sort(tokens[2])
+            if name == 'input':
+                self.value_map[nid] = Input(nid, sort)
+            elif name == 'one':
+                self.value_map[nid] = One(nid, sort)
+            elif name == 'ones':
+                self.value_map[nid] = Ones(nid, sort)
+            elif name == 'zero':
+                self.value_map[nid] = Zero(nid, sort)
+            elif name == 'const':
+                self.value_map[nid] = Const(nid, sort, tokens[3])
+            elif name == 'constd':
+                self.value_map[nid] = Constd(nid, sort, tokens[3])
+            elif name == 'consth':
+                self.value_map[nid] = Consth(nid, sort, tokens[3])
+            elif name == 'state':
+                self.value_map[nid] = State(nid, sort)
+            elif name == 'sext':
+                self.value_map[nid] = Sext(nid, sort, self.get_value(tokens[3]), int(tokens[4]))
+            elif name == 'slice':
+                self.value_map[nid] = Slice(nid, sort, self.get_value(tokens[3]), int(tokens[4]), int(tokens[5]))
+            elif name == 'not':
+                self.value_map[nid] = Not(nid, sort, self.get_value(tokens[3]))
+            elif name == 'inc':
+                self.value_map[nid] = Inc(nid, sort, self.get_value(tokens[3]))
+            elif name == 'dec':
+                self.value_map[nid] = Dec(nid, sort, self.get_value(tokens[3]))
+            elif name == 'neg':
+                self.value_map[nid] = Neg(nid, sort, self.get_value(tokens[3]))
+            elif name == 'redand':
+                self.value_map[nid] = Redand(nid, sort, self.get_value(tokens[3]))
+            elif name == 'redor':
+                self.value_map[nid] = Redor(nid, sort, self.get_value(tokens[3]))
+            elif name == 'redxor':
+                self.value_map[nid] = Redxor(nid, sort, self.get_value(tokens[3]))
+            elif name == 'iff':
+                self.value_map[nid] = Iff(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'implies':
+                self.value_map[nid] = Implies(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'eq':
+                self.value_map[nid] = Eq(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'neq':
+                self.value_map[nid] = Neq(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'sgt':
+                self.value_map[nid] = Sgt(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'ugt':
+                self.value_map[nid] = Ugt(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'sgte':
+                self.value_map[nid] = Sgte(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'ugte':
+                self.value_map[nid] = Ugte(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'slt':
+                self.value_map[nid] = Slt(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'ult':
+                self.value_map[nid] = Ult(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'slte':
+                self.value_map[nid] = Slte(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'ulte':
+                self.value_map[nid] = Ulte(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'and':
+                self.value_map[nid] = And(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'nand':
+                self.value_map[nid] = Nand(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'nor':
+                self.value_map[nid] = Nor(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'or':
+                self.value_map[nid] = Or(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'xnor':
+                self.value_map[nid] = Xnor(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'xor':
+                self.value_map[nid] = Xor(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'rol':
+                self.value_map[nid] = Rol(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'ror':
+                self.value_map[nid] = Ror(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'sll':
+                self.value_map[nid] = Sll(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'sra':
+                self.value_map[nid] = Sra(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'srl':
+                self.value_map[nid] = Srl(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'add':
+                self.value_map[nid] = Add(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'mul':
+                self.value_map[nid] = Mul(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'sdiv':
+                self.value_map[nid] = Sdiv(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'udiv':
+                self.value_map[nid] = Udiv(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'smod':
+                self.value_map[nid] = Smod(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'srem':
+                self.value_map[nid] = Srem(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'urem':
+                self.value_map[nid] = Urem(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'sub':
+                self.value_map[nid] = Sub(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'saddo':
+                self.value_map[nid] = Saddo(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'uaddo':
+                self.value_map[nid] = Uaddo(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'sdivo':
+                self.value_map[nid] = Sdivo(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'udivo':
+                self.value_map[nid] = Udivo(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'smulo':
+                self.value_map[nid] = Smulo(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'umulo':
+                self.value_map[nid] = Umulo(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'ssubo':
+                self.value_map[nid] = Ssubo(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'usubo':
+                self.value_map[nid] = Usubo(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'concat':
+                self.value_map[nid] = Concat(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'read':
+                self.value_map[nid] = Read(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]))
+            elif name == 'ite':
+                self.value_map[nid] = Ite(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]),
+                                          self.get_value(tokens[5]))
+            elif name == 'write':
+                self.value_map[nid] = Write(nid, sort, self.get_value(tokens[3]), self.get_value(tokens[4]),
+                                            self.get_value(tokens[5]))
 
 
 def main():
