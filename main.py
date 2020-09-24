@@ -1,6 +1,6 @@
 import argparse
 from abc import abstractmethod, ABC
-from typing import TextIO, NewType, MutableMapping, Tuple, List, Union, Optional
+from typing import TextIO, NewType, MutableMapping, Tuple, List, Union, Optional, Mapping
 
 Sid = NewType('Sid', int)
 Nid = NewType('Nid', int)
@@ -77,12 +77,12 @@ class Value(Node):
         self.sort: Sort = sort
 
     @abstractmethod
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         raise NotImplementedError
 
 
 class Input(Value):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.nid in v_map:
             return v_map[self.nid]
         # TODO
@@ -99,7 +99,7 @@ class One(Value):
             # TODO
             raise ValueError
 
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.sort.booleanizable():
             return 'true', True
         return '#b' + '0' * (self.sort.get_width() - 1) + '1', False
@@ -112,7 +112,7 @@ class Ones(Value):
             # TODO
             raise ValueError
 
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.sort.booleanizable():
             return 'true', True
         return '#b' + '1' * self.sort.get_width(), False
@@ -125,7 +125,7 @@ class Zero(Value):
             # TODO
             raise ValueError
 
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.sort.booleanizable():
             return 'false', True
         return '#b' + '0' * self.sort.get_width(), False
@@ -139,7 +139,7 @@ class Const(Value):
             # TODO
             raise ValueError
 
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.sort.booleanizable():
             return 'false' if self.bin_str == '0' else 'true', True
         return '#b' + self.bin_str.zfill(self.sort.get_width()), False
@@ -156,7 +156,7 @@ class Constd(Value):
             n = (1 << sort.get_width()) + n
         self.bin_str: str = format(n, 'b')
 
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.sort.booleanizable():
             return 'false' if self.bin_str == '0' else 'true', True
         return '#b' + self.bin_str.zfill(self.sort.get_width()), False
@@ -170,7 +170,7 @@ class Consth(Value):
             # TODO:
             raise ValueError
 
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.sort.booleanizable():
             return 'false' if self.hex_str == '0' else 'true', True
         return '#x' + self.hex_str.zfill(self.sort.get_width() >> 2), False
@@ -182,7 +182,7 @@ class State(Value):
         self.__init: Optional[Init] = None
         self.__next: Optional[Next] = None
 
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.nid in v_map:
             return v_map[self.nid]
         # TODO
@@ -219,7 +219,7 @@ class Sext(Value):
         self.value: Value = value
         self.w: int = w
 
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO: concat
         pass
 
@@ -230,7 +230,7 @@ class Uext(Value):
         self.value: Value = value
         self.w: int = w
 
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO: concat
         pass
 
@@ -243,7 +243,7 @@ class Slice(Value):
         self.upper: int = upper
         self.lower: int = lower
 
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO: extract
         pass
 
@@ -255,7 +255,7 @@ class UnaryOp(Value, ABC):
 
 
 class Not(UnaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         e, b = self.value.to_smt_expr(v_map)
         if b:
             return '(not {:s})'.format(e), True
@@ -263,19 +263,19 @@ class Not(UnaryOp):
 
 
 class Inc(UnaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Dec(UnaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Neg(UnaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         e, b = self.value.to_smt_expr(v_map)
         if b:
             return e, True
@@ -283,7 +283,7 @@ class Neg(UnaryOp):
 
 
 class Redand(UnaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         e, b = self.value.to_smt_expr(v_map)
         if b:
             return e, True
@@ -291,7 +291,7 @@ class Redand(UnaryOp):
 
 
 class Redor(UnaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         e, b = self.value.to_smt_expr(v_map)
         if b:
             return e, True
@@ -299,7 +299,7 @@ class Redor(UnaryOp):
 
 
 class Redxor(UnaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
@@ -312,76 +312,76 @@ class BinaryOp(Value, ABC):
 
 
 class Iff(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(= {:s} {:s})'.format(bv2b(self.value1.to_smt_expr(v_map)), bv2b(self.value2.to_smt_expr(v_map))), True
 
 
 class Implies(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(=> {:s} {:s})'.format(bv2b(self.value1.to_smt_expr(v_map)), bv2b(self.value2.to_smt_expr(v_map))), True
 
 
 class Eq(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(= {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)), b2bv(self.value2.to_smt_expr(v_map))), True
 
 
 class Neq(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(distinct {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                              b2bv(self.value2.to_smt_expr(v_map))), True
 
 
 class Sgt(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvsgt {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), True
 
 
 class Ugt(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvugt {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), True
 
 
 class Sgte(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvsge {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), True
 
 
 class Ugte(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvuge {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), True
 
 
 class Slt(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvslt {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), True
 
 
 class Ult(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvult {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), True
 
 
 class Slte(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvsle {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), True
 
 
 class Ulte(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvule {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), True
 
 
 class And(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         e1, b1 = t1 = self.value1.to_smt_expr(v_map)
         e2, b2 = t2 = self.value2.to_smt_expr(v_map)
         if b1 and b2:
@@ -390,7 +390,7 @@ class And(BinaryOp):
 
 
 class Nand(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         e1, b1 = t1 = self.value1.to_smt_expr(v_map)
         e2, b2 = t2 = self.value2.to_smt_expr(v_map)
         if b1 and b2:
@@ -399,7 +399,7 @@ class Nand(BinaryOp):
 
 
 class Nor(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         e1, b1 = t1 = self.value1.to_smt_expr(v_map)
         e2, b2 = t2 = self.value2.to_smt_expr(v_map)
         if b1 and b2:
@@ -408,7 +408,7 @@ class Nor(BinaryOp):
 
 
 class Or(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         e1, b1 = t1 = self.value1.to_smt_expr(v_map)
         e2, b2 = t2 = self.value2.to_smt_expr(v_map)
         if b1 and b2:
@@ -417,13 +417,13 @@ class Or(BinaryOp):
 
 
 class Xnor(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvxnor {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                            b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Xor(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         e1, b1 = t1 = self.value1.to_smt_expr(v_map)
         e2, b2 = t2 = self.value2.to_smt_expr(v_map)
         if b1 and b2:
@@ -432,139 +432,139 @@ class Xor(BinaryOp):
 
 
 class Sll(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvshl {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Sra(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvashr {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                            b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Srl(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvlshr {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                            b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Rol(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Ror(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Add(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvadd {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Mul(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvmul {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Sdiv(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvsdiv {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                            b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Udiv(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvudiv {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                            b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Smod(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvsmod {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                            b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Srem(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvsrem {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                            b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Urem(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvurem {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                            b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Sub(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(bvsub {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                           b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Saddo(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Uaddo(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Sdivo(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Udivo(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Smulo(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Umulo(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Ssubo(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Usubo(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         # TODO
         pass
 
 
 class Concat(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(concat {:s} {:s})'.format(b2bv(self.value1.to_smt_expr(v_map)),
                                            b2bv(self.value2.to_smt_expr(v_map))), False
 
 
 class Read(BinaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(select {:s} {:s})'.format(self.value1.to_smt_expr(v_map),
                                            b2bv(self.value2.to_smt_expr(v_map))), False
 
@@ -579,7 +579,7 @@ class TernaryOp(Value, ABC):
 
 
 class Ite(TernaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         e2, b2 = t2 = self.value2.to_smt_expr(v_map)
         e3, b3 = t3 = self.value3.to_smt_expr(v_map)
         if b2 and b3:
@@ -588,7 +588,7 @@ class Ite(TernaryOp):
 
 
 class Write(TernaryOp):
-    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> Tuple[str, bool]:
+    def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         return '(store {:s} {:s} {:s})'.format(self.value1.to_smt_expr(v_map),
                                                b2bv(self.value2.to_smt_expr(v_map)),
                                                b2bv(self.value3.to_smt_expr(v_map))), False
@@ -603,7 +603,7 @@ class Init(Node):
         self.value: Value = value
         state.init = self
 
-    def to_smt_eq(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> str:
+    def to_smt_eq(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> str:
         e1, b1 = t1 = self.state.to_smt_expr(v_map)
         e2, b2 = t2 = self.value.to_smt_expr(v_map)
         if b1 and b2:
@@ -621,7 +621,7 @@ class Next(Node):
         self.value: Value = value
         state.next = self
 
-    def to_smt_next(self, v_map: MutableMapping[Nid, Tuple[str, bool]] = None) -> str:
+    def to_smt_next(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> str:
         return b2bv(self.value.to_smt_expr(v_map))
 
 
@@ -631,12 +631,18 @@ class Bad(Node):
         self.nid: Nid = nid
         self.value: Value = value
 
+    def to_smt_cond(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> str:
+        return bv2b(self.value.to_smt_expr(v_map))
+
 
 class Constraint(Node):
     def __init__(self, nid: Nid, value: Value, symbol: str = None, comment: str = None):
         super().__init__(symbol, comment)
         self.nid: Nid = nid
         self.value: Value = value
+
+    def to_smt_cond(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> str:
+        return bv2b(self.value.to_smt_expr(v_map))
 
 
 class Fair(Node):
@@ -855,13 +861,21 @@ class Btor2Chc(object):
             elif name == 'next':
                 Next(nid, sort, self.get_state(tokens[3]), self.get_value(tokens[4]))
 
+    def get_vs_from_v_map(self, v_map: Mapping[Nid, Tuple[str, bool]]) -> List[str]:
+        vs: List[str] = []
+        for nid, (e, b) in v_map.items():
+            if b:
+                vs.append('({:s} {:s})'.format(e, 'Bool'))
+            else:
+                vs.append('({:s} {:s})'.format(e, self.get_value(nid).sort.to_smt_sort()))
+        return vs
+
     def convert(self, source: TextIO, target: TextIO) -> None:
         self.parse(source)
-        target.write('(set-logic HORN)')
-        target.write('(declare-fun Inv ({:s}) Bool)'.format(' '.join(
+        target.write('(set-logic HORN)\n')
+        target.write('(declare-fun Inv ({:s}) Bool)\n'.format(' '.join(
             [s.sort.to_smt_sort() for s in self.state_map.values()])))
 
-        # TODO: constraint
         init_v_map: MutableMapping[Nid, Tuple[str, bool]] = {}
 
         init_inv_args: List[str] = []
@@ -872,16 +886,50 @@ class Btor2Chc(object):
         for init in self.init_list:
             init_eqs.append(init.to_smt_eq(init_v_map))
 
-        init_vs: List[str] = []
-        for nid, (e, b) in init_v_map.items():
-            if b:
-                init_vs.append('({:s} {:s})'.format(e, 'Bool'))
-            else:
-                init_vs.append('({:s} {:s})'.format(e, self.get_value(nid).sort.to_smt_sort()))
-        target.write('(assert (forall ({:s}) (=> (and {:s}) (Inv {:s}))))'.format(
-            ' '.join(init_vs),
+        target.write('(assert (forall ({:s}) (=> (and {:s}) (Inv {:s}))))\n'.format(
+            ' '.join(self.get_vs_from_v_map(init_v_map)),
             ' '.join(init_eqs),
             ' '.join(init_inv_args)))
+
+        next_v_map: MutableMapping[Nid, Tuple[str, bool]] = {}
+
+        next_old_inv_args: List[str] = []
+        for state in self.state_map.values():
+            next_old_inv_args.append(b2bv(state.to_smt_expr(next_v_map)))
+
+        next_new_inv_args: List[str] = []
+        for state in self.state_map.values():
+            if state.next is None:
+                next_new_inv_args.append(b2bv(state.to_smt_expr(next_v_map)))
+            else:
+                next_new_inv_args.append(state.next.to_smt_next(next_v_map))
+
+        target.write('(assert (forall ({:s}) (=> (Inv {:s}) (Inv {:s}))))\n'.format(
+            ' '.join(self.get_vs_from_v_map(next_v_map)),
+            ' '.join(next_old_inv_args),
+            ' '.join(next_new_inv_args)))
+
+        query_v_map: MutableMapping[Nid, Tuple[str, bool]] = {}
+
+        query_inv_args: List[str] = []
+        for state in self.state_map.values():
+            query_inv_args.append(b2bv(state.to_smt_expr(query_v_map)))
+            
+        query_cond: List[str] = []
+        for bad in self.bad_list:
+            query_cond.append(bad.to_smt_cond(query_v_map))
+
+        for constraint in self.constraint_list:
+            query_cond.append(constraint.to_smt_cond(query_v_map))
+
+        target.write('(assert (forall ({:s}) (=> (and (Inv {:s}) {:s}) false)))\n'.format(
+            ' '.join(self.get_vs_from_v_map(query_v_map)),
+            ' '.join(query_inv_args),
+            ' '.join(query_cond)))
+
+        target.write('(check-sat)\n')
+        target.write('(get-model)\n')
+        target.write('(exit)\n')
 
 
 def main():
