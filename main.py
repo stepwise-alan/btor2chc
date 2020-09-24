@@ -116,6 +116,8 @@ class One(Value):
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.sort.booleanizable():
             return 'true', True
+        if self.sort.get_width() % 4 == 0:
+            return '#x' + '0' * ((self.sort.get_width() >> 2) - 1) + '1', False
         return '#b' + '0' * (self.sort.get_width() - 1) + '1', False
 
 
@@ -129,6 +131,8 @@ class Ones(Value):
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.sort.booleanizable():
             return 'true', True
+        if self.sort.get_width() % 4 == 0:
+            return '#x' + 'f' * (self.sort.get_width() >> 2), False
         return '#b' + '1' * self.sort.get_width(), False
 
 
@@ -142,6 +146,8 @@ class Zero(Value):
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.sort.booleanizable():
             return 'false', True
+        if self.sort.get_width() % 4 == 0:
+            return '#x' + '0' * (self.sort.get_width() >> 2), False
         return '#b' + '0' * self.sort.get_width(), False
 
 
@@ -168,12 +174,17 @@ class Constd(Value):
             raise ValueError
         if n < 0:
             n = (1 << sort.get_width()) + n
-        self.bin_str: str = format(n, 'b')
+        self.n: int = n
+        self.s: str
+        if self.sort.get_width() % 4 == 0:
+            self.s = '#x' + format(n, 'x').zfill(self.sort.get_width() >> 2)
+        else:
+            self.s = '#b' + format(n, 'b').zfill(self.sort.get_width())
 
     def to_smt_expr(self, v_map: MutableMapping[Nid, Tuple[str, bool]]) -> Tuple[str, bool]:
         if self.sort.booleanizable():
-            return 'false' if self.bin_str == '0' else 'true', True
-        return '#b' + self.bin_str.zfill(self.sort.get_width()), False
+            return 'false' if self.n == 0 else 'true', True
+        return self.s, False
 
 
 class Consth(Value):
