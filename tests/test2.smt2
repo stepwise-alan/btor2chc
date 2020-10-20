@@ -1,0 +1,8 @@
+(set-logic HORN)
+(set-option :fp.engine spacer)
+(declare-fun Inv ((_ BitVec 2)) Bool)
+(assert (forall ((x (_ BitVec 2))) (=> (Inv x) (= #b0001 ((_ sign_extend 2) x)))))
+(assert (forall ((x (_ BitVec 2))) (=> (= #b0001 ((_ sign_extend 2) x)) (Inv x))))
+(check-sat)
+(get-model)
+(exit)
